@@ -1,6 +1,6 @@
 from fastapi import FastAPI, UploadFile, File
 from ultralytics import YOLO
-from PIL import Image
+from PIL import Image, ImageOps
 from io import BytesIO
 from supabase import create_client
 from datetime import datetime
@@ -186,7 +186,9 @@ def read_root():
 async def predict_file(file: UploadFile = File(...)):
     try:
         contents = await file.read()
-        img = Image.open(BytesIO(contents)).convert("RGB")
+        img = Image.open(BytesIO(contents))
+        img = ImageOps.exif_transpose(img).convert("RGB")
+        
         img_np = np.array(img)
         img_bgr = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)  # Fix color
 
