@@ -2,6 +2,8 @@ from fastapi import FastAPI, UploadFile, File
 from ultralytics import YOLO
 from PIL import Image
 from io import BytesIO
+from supabase import create_client
+from datetime import datetime
 import uuid
 import numpy as np
 import cv2
@@ -194,6 +196,19 @@ async def predict_file(file: UploadFile = File(...)):
         file_name = f"pred_{uuid.uuid4().hex}.jpg"
         save_path = os.path.join(output_dir, file_name)
         cv2.imwrite(save_path, output_img)
+        
+        
+        supabase = create_client("https://qemupbgadjzcdlzpxjva.supabase.co/", "")
+
+        with open(save_path, "rb") as f:
+            file_data = f.read()
+            storage_path = f"predictions/{datetime.utcnow().isoformat()}_{file_name}"
+            supabase.storage.from_("NuadPahStorage").upload(
+                storage_path,
+                file_data,
+                {"content-type": "image/jpeg"}
+            )
+            public_url = supabase.storage.from_("NuadPahStorage").get_public_url(storage_path)
 
         return {
             "success": True,
