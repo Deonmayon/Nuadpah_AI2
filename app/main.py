@@ -51,6 +51,20 @@ with open(label_file, "r") as file:
             keypoint_list.append((rel_x, rel_y, conf))
         
         ref_keypoints.append((class_id, keypoint_list))
+
+def get_sequential_keypoint_pairs(keypoints_list):
+    all_line_pairs = []
+    for class_id, keypoints in keypoints_list:
+        line_pairs = []
+        num_points = len(keypoints)
+        if num_points > 1:
+            mid_point = num_points // 2
+            for i in range(0, mid_point - 1, 2):  # Step in groups of 2
+                line_pairs.append((i, i + 1))
+                if i + mid_point < num_points - 1:
+                    line_pairs.append((i + mid_point, i + 1 + mid_point))
+        all_line_pairs.append(line_pairs)   
+    return all_line_pairs
         
 def get_image(url):
     response = requests.get(url)
@@ -60,12 +74,14 @@ def get_image(url):
 def draw_keypoints_on_target(img_np, results):
     frame_h, frame_w, _ = img_np.shape
     output_frame = img_np.copy()
+    sequential_pairs = get_sequential_keypoint_pairs(ref_keypoints)
 
     TARGET_CLASS_NAME = "shoulder"
     base_radius = int(12 * (frame_w / 800))
     base_radius = max(5, min(base_radius, 30))
 
     GREEN = (0, 255, 0)
+    GREEN_DARK = (0, 200, 0)
 
     target_masks = []
 
@@ -92,7 +108,22 @@ def draw_keypoints_on_target(img_np, results):
     bbox_width = x_max - x_min
     bbox_height = y_max - y_min
 
-    for class_id, keypoints in ref_keypoints:
+    for idx, (class_id, keypoints) in enumerate(ref_keypoints):
+        # Draw sequential keypoint connections
+        for pair in sequential_pairs[idx]:
+            k1, k2 = pair
+            kx1, ky1, _ = keypoints[k1]
+            kx2, ky2, _ = keypoints[k2]
+
+            mapped_x1 = int(x_min + kx1 * bbox_width)
+            mapped_y1 = int(y_min + ky1 * bbox_height)
+            mapped_x2 = int(x_min + kx2 * bbox_width)
+            mapped_y2 = int(y_min + ky2 * bbox_height)
+
+            if cv2.pointPolygonTest(mask_np, (mapped_x1, mapped_y1), False) >= 0 and \
+               cv2.pointPolygonTest(mask_np, (mapped_x2, mapped_y2), False) >= 0:
+                cv2.line(output_frame, (mapped_x1, mapped_y1), (mapped_x2, mapped_y2), GREEN_DARK , 2)
+                
         for kx_rel, ky_rel, conf in keypoints:
             mapped_x = int(x_min + kx_rel * bbox_width)
             mapped_y = int(y_min + ky_rel * bbox_height)
@@ -105,46 +136,46 @@ def draw_keypoints_on_target(img_np, results):
 def read_root():
     return {"Hello": "World"}
 
-@app.post("/predict")
-async def predict(url: str):
-    try:
-        # Get image from URL
-        img = get_image(url)
+# @app.post("/predict")
+# async def predict(url: str):
+#     try:
+#         # Get image from URL
+#         img = get_image(url)
 
-        # Convert to numpy (YOLO expects ndarray or path)
-        img_np = np.array(img)
+#         # Convert to numpy (YOLO expects ndarray or path)
+#         img_np = np.array(img)
 
-        # Predict using YOLO
-        results = model(img_np)
+#         # Predict using YOLO
+#         results = model(img_np)
 
-        # Extract result data
-        result_data = []
-        for result in results:
-            boxes = result.boxes
-            masks = result.masks
-            for i in range(len(boxes)):
-                box = boxes[i].xyxy.cpu().numpy().tolist()[0] if boxes is not None else None
-                conf = boxes[i].conf.item() if boxes is not None else None
-                cls = int(boxes[i].cls.item()) if boxes is not None else None
-                class_name = model.names[cls] if cls is not None else None
+#         # Extract result data
+#         result_data = []
+#         for result in results:
+#             boxes = result.boxes
+#             masks = result.masks
+#             for i in range(len(boxes)):
+#                 box = boxes[i].xyxy.cpu().numpy().tolist()[0] if boxes is not None else None
+#                 conf = boxes[i].conf.item() if boxes is not None else None
+#                 cls = int(boxes[i].cls.item()) if boxes is not None else None
+#                 class_name = model.names[cls] if cls is not None else None
 
-                result_data.append({
-                    "class_id": cls,
-                    "class_name": class_name,
-                    "confidence": conf,
-                    "bbox": box,
-                })
+#                 result_data.append({
+#                     "class_id": cls,
+#                     "class_name": class_name,
+#                     "confidence": conf,
+#                     "bbox": box,
+#                 })
 
-        return {
-            "success": True,
-            "predictions": result_data
-        }
+#         return {
+#             "success": True,
+#             "predictions": result_data
+#         }
 
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
+#     except Exception as e:
+#         return {
+#             "success": False,
+#             "error": str(e)
+#         }
         
 @app.post("/predict-file")
 async def predict_file(file: UploadFile = File(...)):
