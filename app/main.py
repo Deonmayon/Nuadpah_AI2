@@ -220,7 +220,7 @@ async def predict_file(file: UploadFile = File(...)):
             "success": True,
             "message": "Keypoints drawn and image saved.",
             "output_image": save_path,
-            "public_url": public_url["publicURL"]
+            "public_url": public_url
         }
 
     except Exception as e:
