@@ -4,6 +4,7 @@ from PIL import Image
 from io import BytesIO
 from supabase import create_client
 from datetime import datetime
+from dotenv import load_dotenv
 import uuid
 import numpy as np
 import cv2
@@ -11,6 +12,8 @@ import os
 import requests
 
 app = FastAPI()
+
+load_dotenv()
 
 model = YOLO("model/new_best_seg.pt")
 
@@ -197,23 +200,27 @@ async def predict_file(file: UploadFile = File(...)):
         save_path = os.path.join(output_dir, file_name)
         cv2.imwrite(save_path, output_img)
         
+        # create supabase client
+        supabase = create_client(
+            os.getenv("SUPABASE_URL"),
+            os.getenv("SUPABASE_API_KEY")
+        )
         
-        supabase = create_client("https://qemupbgadjzcdlzpxjva.supabase.co/", "")
-
         with open(save_path, "rb") as f:
             file_data = f.read()
             storage_path = f"predictions/{datetime.utcnow().isoformat()}_{file_name}"
-            supabase.storage.from_("NuadPahStorage").upload(
+            supabase.storage.from_(os.getenv("SUPABASE_BUCKET_NAME")).upload(
                 storage_path,
                 file_data,
                 {"content-type": "image/jpeg"}
             )
-            public_url = supabase.storage.from_("NuadPahStorage").get_public_url(storage_path)
+            public_url = supabase.storage.from_(os.getenv("SUPABASE_BUCKET_NAME")).get_public_url(storage_path)
 
         return {
             "success": True,
             "message": "Keypoints drawn and image saved.",
             "output_image": save_path,
+            "public_url": public_url["publicURL"]
         }
 
     except Exception as e:
