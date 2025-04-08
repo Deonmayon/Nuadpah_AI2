@@ -127,60 +127,20 @@ def draw_keypoints_on_target(img_np, results):
 
             if cv2.pointPolygonTest(mask_np, (mapped_x1, mapped_y1), False) >= 0 and \
                cv2.pointPolygonTest(mask_np, (mapped_x2, mapped_y2), False) >= 0:
-                cv2.line(output_frame, (mapped_x1, mapped_y1), (mapped_x2, mapped_y2), GREEN_DARK , 2)
+                cv2.arrowedLine(output_frame, (mapped_x1, mapped_y1), (mapped_x2, mapped_y2), GREEN_DARK , 3, tipLength=0.2)
                 
-        for kx_rel, ky_rel, conf in keypoints:
-            mapped_x = int(x_min + kx_rel * bbox_width)
-            mapped_y = int(y_min + ky_rel * bbox_height)
-            if cv2.pointPolygonTest(mask_np, (mapped_x, mapped_y), False) >= 0:
-                cv2.circle(output_frame, (mapped_x, mapped_y), base_radius, GREEN, -1)
+        for i, (kx_rel, ky_rel, conf) in enumerate(keypoints):
+            if i in [0, 2]:  # Only index 0 and 2
+                mapped_x = int(x_min + kx_rel * bbox_width)
+                mapped_y = int(y_min + ky_rel * bbox_height)
+                if cv2.pointPolygonTest(mask_np, (mapped_x, mapped_y), False) >= 0:
+                    cv2.circle(output_frame, (mapped_x, mapped_y), base_radius, GREEN, -1)
 
     return output_frame, None
 
 @app.get("/")
 def read_root():
     return {"Hello": "World"}
-
-# @app.post("/predict")
-# async def predict(url: str):
-#     try:
-#         # Get image from URL
-#         img = get_image(url)
-
-#         # Convert to numpy (YOLO expects ndarray or path)
-#         img_np = np.array(img)
-
-#         # Predict using YOLO
-#         results = model(img_np)
-
-#         # Extract result data
-#         result_data = []
-#         for result in results:
-#             boxes = result.boxes
-#             masks = result.masks
-#             for i in range(len(boxes)):
-#                 box = boxes[i].xyxy.cpu().numpy().tolist()[0] if boxes is not None else None
-#                 conf = boxes[i].conf.item() if boxes is not None else None
-#                 cls = int(boxes[i].cls.item()) if boxes is not None else None
-#                 class_name = model.names[cls] if cls is not None else None
-
-#                 result_data.append({
-#                     "class_id": cls,
-#                     "class_name": class_name,
-#                     "confidence": conf,
-#                     "bbox": box,
-#                 })
-
-#         return {
-#             "success": True,
-#             "predictions": result_data
-#         }
-
-#     except Exception as e:
-#         return {
-#             "success": False,
-#             "error": str(e)
-#         }
         
 @app.post("/predict-file")
 async def predict_file(file: UploadFile = File(...)):
